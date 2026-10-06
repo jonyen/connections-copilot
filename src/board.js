@@ -1,5 +1,5 @@
 export const COLS = 4;
-export const ROWS = 4;
+export const ROWS = 4; // starting grid; a canvas passes more rows in metrics as m.rows
 export const COLOR_COUNT = 5; // 0 = uncolored, 1–4 = group colors
 
 export function createBoard(words) {
@@ -10,6 +10,9 @@ export function createBoard(words) {
   };
 }
 
+const rowsOf = m => m.rows ?? ROWS;
+export const totalCells = m => COLS * rowsOf(m);
+
 export function cellXY(cell, m) {
   return { x: (cell % COLS) * (m.tileW + m.gap), y: Math.floor(cell / COLS) * (m.tileH + m.gap) };
 }
@@ -17,12 +20,12 @@ export function cellXY(cell, m) {
 export function cellAt(x, y, m) {
   const clamp = (v, hi) => Math.max(0, Math.min(hi, v));
   const col = clamp(Math.round(x / (m.tileW + m.gap)), COLS - 1);
-  const row = clamp(Math.round(y / (m.tileH + m.gap)), ROWS - 1);
+  const row = clamp(Math.round(y / (m.tileH + m.gap)), rowsOf(m) - 1);
   return row * COLS + col;
 }
 
 export function boardSize(m) {
-  return { w: COLS * m.tileW + (COLS - 1) * m.gap, h: ROWS * m.tileH + (ROWS - 1) * m.gap };
+  return { w: COLS * m.tileW + (COLS - 1) * m.gap, h: rowsOf(m) * m.tileH + (rowsOf(m) - 1) * m.gap };
 }
 
 export function placeAll(board, m) {
@@ -76,7 +79,7 @@ export function snapGroup(board, ids, anchorId, m) {
   const group = ids.map(id => board.tiles[id]).sort((a, b) => a.cell - b.cell);
   const anchor = board.tiles[anchorId];
   const anchorIndex = group.indexOf(anchor);
-  const start = Math.max(0, Math.min(COLS * ROWS - n, cellAt(anchor.x, anchor.y, m) - anchorIndex));
+  const start = Math.max(0, Math.min(totalCells(m) - n, cellAt(anchor.x, anchor.y, m) - anchorIndex));
   const targets = Array.from({ length: n }, (_, i) => start + i);
   const targetSet = new Set(targets);
   const idSet = new Set(ids);
@@ -89,11 +92,30 @@ export function snapGroup(board, ids, anchorId, m) {
   placeAll(board, m);
 }
 
+// Every tile first claims the cell under it (reading order breaks ties); tiles
+// that lost a tie then take the nearest cell still free.
 export function enableSnap(board, m) {
   const pitch = m.tileH + m.gap;
   const order = [...board.tiles].sort(
     (a, b) => (Math.round(a.y / pitch) - Math.round(b.y / pitch)) || (a.x - b.x));
-  order.forEach((t, i) => { t.cell = i; });
+  const taken = new Set();
+  const losers = [];
+  for (const t of order) {
+    const c = cellAt(t.x, t.y, m);
+    if (taken.has(c)) losers.push(t);
+    else { taken.add(c); t.cell = c; }
+  }
+  for (const t of losers) {
+    let best = -1, bestD = Infinity;
+    for (let c = 0; c < totalCells(m); c++) {
+      if (taken.has(c)) continue;
+      const p = cellXY(c, m);
+      const d = Math.hypot(p.x - t.x, p.y - t.y);
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    taken.add(best);
+    t.cell = best;
+  }
   board.snap = true;
   placeAll(board, m);
 }
@@ -104,10 +126,12 @@ export function disableSnap(board) {
 }
 
 export function rescale(board, from, to) {
-  if (board.snap) return placeAll(board, to);
+  const outOfRange = board.tiles.some(t => t.cell !== null && t.cell >= totalCells(to));
+  if (board.snap && !outOfRange) return placeAll(board, to);
   const sx = (to.tileW + to.gap) / (from.tileW + from.gap);
   const sy = (to.tileH + to.gap) / (from.tileH + from.gap);
   for (const t of board.tiles) { t.x *= sx; t.y *= sy; }
+  if (board.snap) enableSnap(board, to); // canvas shrank below some tiles' cells
 }
 
 export function tilesInRect(board, r, m) {

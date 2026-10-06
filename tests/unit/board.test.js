@@ -105,18 +105,17 @@ test('snapGroup clamps at board end', () => {
   assert.deepEqual(['TAB','CALL','PERCH','EYELET'].map(w => cellOf(b, w)), [0, 1, 2, 3]);
 });
 
-test('disableSnap clears cells; enableSnap reassigns by reading order', () => {
+test('disableSnap clears cells; enableSnap sends a collision to the nearest free cell', () => {
   const b = fresh();
   disableSnap(b);
   assert.equal(b.snap, false);
   assert.ok(b.tiles.every(t => t.cell === null));
-  b.tiles[0].x = 335; b.tiles[0].y = 3;  // SOLE nudged to far right of row 0
-  b.tiles[3].x = 330;                     // HEEL stays
+  b.tiles[0].x = 335; b.tiles[0].y = 3;  // SOLE dropped onto HEEL; HEEL comes first in reading order
   enableSnap(b, M);
   assert.equal(b.snap, true);
-  assert.equal(cellOf(b, 'HEEL'), 2);
-  assert.equal(cellOf(b, 'SOLE'), 3);
-  assert.deepEqual([b.tiles[0].x, b.tiles[0].y], [330, 0]);
+  assert.equal(cellOf(b, 'HEEL'), 3);
+  assert.equal(cellOf(b, 'SOLE'), 0);    // the only free cell on a 4x4 board
+  assert.deepEqual([b.tiles[0].x, b.tiles[0].y], [0, 0]);
 });
 
 test('rescale snap mode re-places by cell', () => {
@@ -138,4 +137,67 @@ test('tilesInRect returns intersecting tiles', () => {
   const b = fresh();
   assert.deepEqual(tilesInRect(b, { x: -10, y: -10, w: 170, h: 110 }, M), [0, 1, 4, 5]);
   assert.deepEqual(tilesInRect(b, { x: 101, y: 0, w: 8, h: 300 }, M), []); // gap column
+});
+
+// Canvas: the grid extends below the 16 tiles, leaving empty cells to park groups in.
+const C = { tileW: 100, tileH: 100, gap: 10, rows: 7 };
+const canvas = () => { const b = createBoard(WORDS); placeAll(b, C); return b; };
+
+test('canvas grid math uses m.rows', () => {
+  assert.deepEqual(boardSize(C), { w: 430, h: 760 });
+  assert.equal(cellAt(0, 9999, C), 24);
+});
+
+test('snapSingle into an empty canvas cell moves without swapping', () => {
+  const b = canvas();
+  Object.assign(b.tiles[0], cellXY(21, C));
+  snapSingle(b, 0, C);
+  assert.equal(cellOf(b, 'SOLE'), 21);
+  assert.equal(b.tiles.filter(t => t.cell === 0).length, 0); // vacated cell stays empty
+});
+
+test('snapGroup into empty canvas rows leaves vacated cells empty', () => {
+  const b = canvas();
+  Object.assign(b.tiles[1], cellXY(21, C));
+  snapGroup(b, [0, 1, 2, 3], 1, C);
+  assert.deepEqual(['SOLE', 'SHIFT', 'CHECK', 'HEEL'].map(w => cellOf(b, w)), [20, 21, 22, 23]);
+  assert.equal(cellOf(b, 'PIKE'), 4);
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
+});
+
+test('snapGroup clamps at canvas end', () => {
+  const b = canvas();
+  Object.assign(b.tiles[0], cellXY(27, C));
+  snapGroup(b, [0, 1, 2, 3], 0, C);
+  assert.deepEqual(['SOLE', 'SHIFT', 'CHECK', 'HEEL'].map(w => cellOf(b, w)), [24, 25, 26, 27]);
+});
+
+test('enableSnap on canvas keeps tiles near where they were', () => {
+  const b = canvas();
+  disableSnap(b);
+  Object.assign(b.tiles[0], { x: 115, y: 560 }); // SOLE parked near cell 21
+  b.tiles[1].x += 20;                            // SHIFT nudged, still nearest cell 1
+  enableSnap(b, C);
+  assert.equal(cellOf(b, 'SOLE'), 21);
+  assert.equal(cellOf(b, 'SHIFT'), 1);
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
+});
+
+test('enableSnap resolves two tiles over one cell to the nearest free cell', () => {
+  const b = canvas();
+  disableSnap(b);
+  Object.assign(b.tiles[0], cellXY(5, C)); // SOLE dropped exactly on RAISE
+  enableSnap(b, C);
+  assert.equal(cellOf(b, 'SOLE'), 5);  // ties keep id order, so SOLE claims the cell first
+  assert.equal(cellOf(b, 'RAISE'), 0); // nearest free cell is the one SOLE left
+});
+
+test('rescale in snap mode re-homes tiles whose cell no longer exists', () => {
+  const b = canvas();
+  Object.assign(b.tiles[0], cellXY(27, C));
+  snapSingle(b, 0, C);
+  const small = { tileW: 100, tileH: 100, gap: 10, rows: 5 };
+  rescale(b, C, small);
+  assert.ok(b.tiles.every(t => t.cell < 20));
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
 });
