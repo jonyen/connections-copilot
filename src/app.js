@@ -10,8 +10,9 @@ const SAMPLE_WORDS = ['SOLE', 'SHIFT', 'CHECK', 'HEEL', 'PIKE', 'RAISE', 'TONGUE
 let words = SAMPLE_WORDS;
 let puzzle = null;   // today's puzzle once loaded
 let touched = false; // user has changed the board since the last build
-const MAX_W = 560;
 const GAP = 8;
+const MAX_TILE = 110; // px; keeps desktop tiles near phone size so the canvas has room
+const MIN_ROWS = 6;   // at least two empty rows below the starting 4x4 for parking groups
 
 const stageEl = document.getElementById('stage');
 const boardEl = document.getElementById('board');
@@ -30,9 +31,23 @@ const gestures = createGestures({
 });
 
 function metrics() {
-  const w = Math.min(stageEl.clientWidth - 40, MAX_W); // 40 = stage padding both sides
-  const tileW = (w - GAP * 3) / 4;
-  return { tileW, tileH: Math.max(56, Math.round(tileW * 0.75)), gap: GAP };
+  const cs = getComputedStyle(stageEl);
+  const availW = stageEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const availH = stageEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const byWidth = (availW - GAP * 3) / 4;
+  const byHeight = (availH - GAP * (MIN_ROWS - 1)) / MIN_ROWS;
+  const tile = Math.max(48, Math.floor(Math.min(byWidth, byHeight, MAX_TILE)));
+  const rows = Math.max(4, Math.floor((availH + GAP) / (tile + GAP)));
+  return { tileW: tile, tileH: tile, gap: GAP, rows };
+}
+
+// Shrink long words to fit one line in a square tile, measured in the tile's real font.
+const measureCtx = document.createElement('canvas').getContext('2d');
+function fontSize(word) {
+  const family = getComputedStyle(document.documentElement).getPropertyValue('--font-display');
+  measureCtx.font = `800 100px ${family}`;
+  const widthAt100 = measureCtx.measureText(word.toUpperCase()).width;
+  return Math.max(9, Math.min(m.tileW * 0.19, (m.tileW - 14) * 100 / widthAt100));
 }
 
 function build() {
@@ -63,6 +78,7 @@ function render() {
     const el = tileEls[t.id];
     el.style.width = `${m.tileW}px`;
     el.style.height = `${m.tileH}px`;
+    el.style.fontSize = `${fontSize(t.word)}px`;
     el.style.transform = `translate(${t.x}px, ${t.y}px)`;
     el.dataset.color = t.color;
     el.dataset.selected = t.selected;
@@ -172,6 +188,17 @@ snapEl.addEventListener('change', () => {
   render();
 });
 document.getElementById('reset').addEventListener('click', build);
+
+const aboutEl = document.getElementById('about');
+document.getElementById('about-btn').addEventListener('click', () => aboutEl.showModal());
+function markSeen() {
+  try { localStorage.setItem('seenAbout', '1'); } catch { /* storage blocked */ }
+}
+document.getElementById('about-close').addEventListener('click', () => { markSeen(); aboutEl.close(); });
+aboutEl.addEventListener('close', markSeen); // Esc closes without the button
+let seen = false;
+try { seen = localStorage.getItem('seenAbout') === '1'; } catch { /* storage blocked */ }
+if (!seen) aboutEl.showModal();
 window.addEventListener('resize', () => {
   const next = metrics();
   rescale(board, m, next);
@@ -180,6 +207,7 @@ window.addEventListener('resize', () => {
 });
 
 build();
+document.fonts?.ready.then(render); // re-fit words once the web font has loaded
 function setLabel(suffix) {
   document.getElementById('puzzle-label').textContent =
     puzzle ? puzzleLabel(puzzle) + suffix : 'Sample board';

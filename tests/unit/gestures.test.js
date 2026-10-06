@@ -109,11 +109,16 @@ test('click on empty space clears', () => {
   assert.deepEqual(g.handle(up({ x: 2 })), [{ type: 'clear' }]);
 });
 
-test('touch on empty space never marquees, tap clears', () => {
+test('touch on empty canvas draws a marquee; a tap there clears', () => {
   const g = machine();
   g.handle(down({ tileId: null, pointerType: 'touch' }));
-  assert.deepEqual(g.handle(move({ x: 100, y: 100 })), []);
-  assert.deepEqual(g.handle(up({ x: 100, y: 100 })), [{ type: 'clear' }]);
+  assert.deepEqual(g.handle(move({ x: 100, y: 100 })), [
+    { type: 'marquee', rect: { x: 0, y: 0, w: 100, h: 100 }, additive: false },
+  ]);
+  assert.deepEqual(types(g.handle(up({ x: 100, y: 100 }))), ['marqueeEnd']);
+  const tap = machine();
+  tap.handle(down({ tileId: null, pointerType: 'touch' }));
+  assert.deepEqual(tap.handle(up({ x: 2 })), [{ type: 'clear' }]);
 });
 
 test('current mode: mouse on empty space does not marquee', () => {

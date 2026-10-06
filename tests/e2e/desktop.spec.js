@@ -34,7 +34,10 @@ async function quickDrag(page, fromWord, to) {
   await page.mouse.up();
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (!testInfo.title.includes('first visit')) {
+    await page.addInitScript(() => localStorage.setItem('seenAbout', '1')); // skip the pitch overlay
+  }
   await page.route('**/puzzle.json', r => r.fulfill({ status: 404 })); // fixed sample board
   await page.goto('/');
   await page.waitForTimeout(250); // let transform transitions settle
@@ -60,6 +63,7 @@ test('tap on a selected tile colors the whole selection', async ({ page }) => {
 });
 
 test('quick drag moves one tile, selects nothing, swaps on snap', async ({ page }) => {
+  await page.locator('#snap').check();
   const before = await boxes(page);
   await quickDrag(page, 'SOLE', await center(page, 'RAISE'));
   await page.waitForTimeout(250);
@@ -92,6 +96,7 @@ test('click on stage padding clears selection; Esc clears selection', async ({ p
 });
 
 test('group drag with snap: dragged tile lands under pointer, displaced fill vacated', async ({ page }) => {
+  await page.locator('#snap').check();
   const before = await boxes(page);
   await sweep(page, ROW0);
   await quickDrag(page, 'SHIFT', await center(page, 'CARP'));
@@ -199,4 +204,42 @@ test('late puzzle.json does not wipe a board the user already touched', async ({
   await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
   await expect(tile(page, 'SOLE')).toHaveAttribute('data-color', '0');
   expect(Object.keys(await boxes(page))[0]).toBe('PIKE');
+});
+
+test('first visit shows the pitch; closing it is remembered', async ({ page }) => {
+  await expect(page.locator('#about')).toBeVisible();
+  await page.locator('#about-close').click();
+  await expect(page.locator('#about')).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#about')).toBeHidden();
+  await page.locator('#about-btn').click();
+  await expect(page.locator('#about')).toBeVisible();
+});
+
+test('canvas: tiles are square, snap starts off, and a tile can be parked below the grid', async ({ page }) => {
+  await expect(page.locator('#snap')).not.toBeChecked();
+  const box = await tile(page, 'SOLE').boundingBox();
+  expect(Math.round(box.width)).toBe(Math.round(box.height));
+  const board = await page.locator('#board').boundingBox();
+  expect(board.height).toBeGreaterThan(box.height * 5); // empty rows below the 4x4
+  const start = await center(page, 'SOLE');
+  const target = { x: start.x, y: board.y + board.height - box.height / 2 - 2 };
+  await quickDrag(page, 'SOLE', target);
+  const after = (await boxes(page)).SOLE;
+  expect(after.y).toBeGreaterThan(box.height * 4);
+});
+
+test('canvas with snap: a group parks in empty rows without disturbing others', async ({ page }) => {
+  await page.locator('#snap').check();
+  const before = await boxes(page);
+  await sweep(page, ROW0);
+  const board = await page.locator('#board').boundingBox();
+  const b = await tile(page, 'SOLE').boundingBox();
+  const s = await center(page, 'SOLE');
+  await quickDrag(page, 'SOLE', { x: s.x, y: board.y + board.height - b.height / 2 - 2 });
+  await page.waitForTimeout(250);
+  const after = await boxes(page);
+  for (const w of ROW0) expect(after[w].y).toBeGreaterThan(before.TAB.y);
+  expect(after.PIKE).toEqual(before.PIKE);
+  expect(after.EYELET).toEqual(before.EYELET);
 });

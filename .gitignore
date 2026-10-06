@@ -6,3 +6,4 @@ puzzle.json.tmp
 dist/
 .wrangler/
 .superpowers/
+.probe/

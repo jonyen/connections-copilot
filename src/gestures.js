@@ -16,7 +16,7 @@ export function createGestures({ proposed, isSelected }) {
       s = { kind: 'pressing', pointerId: e.pointerId, tileId: e.tileId, start };
       return proposed() ? [{ type: 'armLongPress', ms: HOLD_MS }] : [];
     }
-    if (proposed() && e.pointerType !== 'touch') {
+    if (proposed()) {
       s = { kind: 'marquee', pointerId: e.pointerId, start, additive: e.shiftKey, moved: false };
       return [];
     }

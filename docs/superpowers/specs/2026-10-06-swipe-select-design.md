@@ -150,3 +150,19 @@ static assets from `dist/` (only `index.html` and `src/`, built by
 puzzle (Eastern date), strips it to `{id, date, words}`, and caches it at the
 edge keyed by date. NYT failure returns 503 and the page shows the sample board.
 `scripts/fetch-puzzle.mjs` remains for offline/local use. Deploy: `npm run deploy`.
+
+## Canvas layout (revised 2026-10-06)
+
+Supersedes the boxed 4×4 board and the always-visible pitch, at the user's
+request to match Connections Copilot's canvas:
+- Full-screen app: slim top bar (puzzle label, Current/Proposed, Snap, Reset, ⓘ);
+  everything below is the canvas. The pitch and gesture legend live in a dialog,
+  shown once on first visit (remembered in localStorage) and reopened with ⓘ.
+- Square tiles, four across, at most 110 px; the starting 4×4 sits at the top and
+  the grid continues down the canvas (at least 6 rows), leaving empty cells to park
+  groups in. Free drag is bounded by the canvas.
+- Snap starts off. With snap on, a single tile drops into the nearest cell
+  (swapping with an occupant), a group into consecutive cells; turning snap on
+  sends tiles to the cell under them, collisions to the nearest free cell.
+- Rectangle select now works with touch too, starting on empty canvas.
+- Words are sized to fit one line using the tile font's measured width.

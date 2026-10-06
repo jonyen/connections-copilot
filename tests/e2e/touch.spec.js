@@ -24,7 +24,10 @@ async function finger(page) {
   };
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (!testInfo.title.includes('first visit')) {
+    await page.addInitScript(() => localStorage.setItem('seenAbout', '1')); // skip the pitch overlay
+  }
   await page.route('**/puzzle.json', r => r.fulfill({ status: 404 })); // fixed sample board
   await page.goto('/');
   await page.waitForTimeout(250);
@@ -64,15 +67,15 @@ test('quick drag moves one tile and selects nothing', async ({ page }) => {
   expect(Math.round(soleBox.y)).toBe(Math.round(raiseBox.y));
 });
 
-test('touch drag on stage padding does not marquee', async ({ page }) => {
+test('touch drag on empty canvas draws a rectangle and selects', async ({ page }) => {
   const f = await finger(page);
-  const b = await page.locator('#board').boundingBox();
-  const from = { x: b.x - 10, y: b.y - 10 };
+  const tab = await tile(page, 'TAB').boundingBox();
+  const from = { x: tab.x + 5, y: tab.y + tab.height + 40 }; // empty canvas below the grid
   await f.down(from);
-  await f.path(from, await center(page, 'RAISE'));
-  await expect(page.locator('#marquee')).toBeHidden();
+  await f.path(from, await center(page, 'CALL'));
+  await expect(page.locator('#marquee')).toBeVisible();
   await f.up();
-  expect(await selectedWords(page)).toEqual([]);
+  expect(await selectedWords(page)).toEqual(['CALL', 'TAB']);
 });
 
 test('long-press does not open a context menu or select text', async ({ page }) => {
