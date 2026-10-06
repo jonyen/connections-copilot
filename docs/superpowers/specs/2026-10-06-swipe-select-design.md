@@ -166,3 +166,6 @@ request to match Connections Copilot's canvas:
   sends tiles to the cell under them, collisions to the nearest free cell.
 - Rectangle select now works with touch too, starting on empty canvas.
 - Words are sized to fit one line using the tile font's measured width.
+- (2026-10-06) The canvas spans the full window width, not a 4-column strip: the
+  snap grid has as many columns as fit, centered, and the starting 4×4 is centered
+  in it. Free drag is bounded by the whole stage.

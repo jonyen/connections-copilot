@@ -1,5 +1,5 @@
 import {
-  createBoard, boardSize, placeAll, selectedIds, setSelected, clearSelection, cycleColor,
+  createBoard, boardSize, placeAll, placeStart, selectedIds, setSelected, clearSelection, cycleColor,
   moveTiles, snapSingle, snapGroup, enableSnap, disableSnap, rescale, tilesInRect,
 } from './board.js';
 import { createGestures } from './gestures.js';
@@ -38,7 +38,11 @@ function metrics() {
   const byHeight = (availH - GAP * (MIN_ROWS - 1)) / MIN_ROWS;
   const tile = Math.max(48, Math.floor(Math.min(byWidth, byHeight, MAX_TILE)));
   const rows = Math.max(4, Math.floor((availH + GAP) / (tile + GAP)));
-  return { tileW: tile, tileH: tile, gap: GAP, rows };
+  const cols = Math.max(4, Math.floor((availW + GAP) / (tile + GAP)));
+  const gridW = cols * tile + (cols - 1) * GAP;
+  // The canvas is the whole stage; the snap grid fills it, centered horizontally.
+  return { tileW: tile, tileH: tile, gap: GAP, rows, cols,
+    offsetX: Math.floor((availW - gridW) / 2), canvasW: availW, canvasH: availH };
 }
 
 // One font size for every tile, like NYT Connections: the size the longest word
@@ -66,7 +70,7 @@ function build() {
     boardEl.append(el);
     return el;
   });
-  placeAll(board, m);
+  placeStart(board, m);
   if (!snapEl.checked) disableSnap(board);
   render();
 }

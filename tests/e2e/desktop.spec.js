@@ -243,3 +243,17 @@ test('canvas with snap: a group parks in empty rows without disturbing others', 
   expect(after.PIKE).toEqual(before.PIKE);
   expect(after.EYELET).toEqual(before.EYELET);
 });
+
+test('canvas spans the full window width; tiles can be parked at the far edges', async ({ page }) => {
+  const vw = page.viewportSize().width;
+  const board = await page.locator('#board').boundingBox();
+  expect(board.width).toBeGreaterThan(vw - 60); // only the stage margins are outside
+  const s = await center(page, 'SOLE');
+  await quickDrag(page, 'SOLE', { x: board.x + 20, y: s.y });
+  const left = await tile(page, 'SOLE').boundingBox();
+  expect(left.x).toBeLessThan(board.x + 5);
+  const h = await center(page, 'HEEL');
+  await quickDrag(page, 'HEEL', { x: board.x + board.width - 20, y: h.y });
+  const right = await tile(page, 'HEEL').boundingBox();
+  expect(right.x + right.width).toBeGreaterThan(board.x + board.width - 5);
+});

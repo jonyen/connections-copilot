@@ -1,5 +1,7 @@
 export const COLS = 4;
-export const ROWS = 4; // starting grid; a canvas passes more rows in metrics as m.rows
+export const ROWS = 4;
+// COLS x ROWS is the starting grid. A canvas passes its real grid in metrics:
+// m.cols, m.rows, m.offsetX (grid inset from the canvas edge), m.canvasW, m.canvasH.
 export const COLOR_COUNT = 5; // 0 = uncolored, 1–4 = group colors
 
 export function createBoard(words) {
@@ -11,21 +13,35 @@ export function createBoard(words) {
 }
 
 const rowsOf = m => m.rows ?? ROWS;
-export const totalCells = m => COLS * rowsOf(m);
+const colsOf = m => m.cols ?? COLS;
+const offsetOf = m => m.offsetX ?? 0;
+export const totalCells = m => colsOf(m) * rowsOf(m);
 
 export function cellXY(cell, m) {
-  return { x: (cell % COLS) * (m.tileW + m.gap), y: Math.floor(cell / COLS) * (m.tileH + m.gap) };
+  const cols = colsOf(m);
+  return { x: offsetOf(m) + (cell % cols) * (m.tileW + m.gap), y: Math.floor(cell / cols) * (m.tileH + m.gap) };
 }
 
 export function cellAt(x, y, m) {
   const clamp = (v, hi) => Math.max(0, Math.min(hi, v));
-  const col = clamp(Math.round(x / (m.tileW + m.gap)), COLS - 1);
+  const col = clamp(Math.round((x - offsetOf(m)) / (m.tileW + m.gap)), colsOf(m) - 1);
   const row = clamp(Math.round(y / (m.tileH + m.gap)), rowsOf(m) - 1);
-  return row * COLS + col;
+  return row * colsOf(m) + col;
 }
 
 export function boardSize(m) {
-  return { w: COLS * m.tileW + (COLS - 1) * m.gap, h: rowsOf(m) * m.tileH + (rowsOf(m) - 1) * m.gap };
+  return {
+    w: m.canvasW ?? colsOf(m) * m.tileW + (colsOf(m) - 1) * m.gap,
+    h: m.canvasH ?? rowsOf(m) * m.tileH + (rowsOf(m) - 1) * m.gap,
+  };
+}
+
+// Lay the 16 tiles out as a 4x4 centered in the canvas grid.
+export function placeStart(board, m) {
+  const cols = colsOf(m);
+  const startCol = Math.floor((cols - COLS) / 2);
+  for (const t of board.tiles) t.cell = Math.floor(t.id / COLS) * cols + startCol + (t.id % COLS);
+  placeAll(board, m);
 }
 
 export function placeAll(board, m) {
@@ -126,12 +142,17 @@ export function disableSnap(board) {
 }
 
 export function rescale(board, from, to) {
-  const outOfRange = board.tiles.some(t => t.cell !== null && t.cell >= totalCells(to));
-  if (board.snap && !outOfRange) return placeAll(board, to);
+  const sameGrid = colsOf(from) === colsOf(to) &&
+    !board.tiles.some(t => t.cell !== null && t.cell >= totalCells(to));
+  if (board.snap && sameGrid) return placeAll(board, to);
   const sx = (to.tileW + to.gap) / (from.tileW + from.gap);
   const sy = (to.tileH + to.gap) / (from.tileH + from.gap);
-  for (const t of board.tiles) { t.x *= sx; t.y *= sy; }
-  if (board.snap) enableSnap(board, to); // canvas shrank below some tiles' cells
+  const { w, h } = boardSize(to);
+  for (const t of board.tiles) {
+    t.x = Math.max(0, Math.min(w - to.tileW, offsetOf(to) + (t.x - offsetOf(from)) * sx));
+    t.y = Math.max(0, Math.min(h - to.tileH, t.y * sy));
+  }
+  if (board.snap) enableSnap(board, to); // grid changed shape; re-home by position
 }
 
 export function tilesInRect(board, r, m) {

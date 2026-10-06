@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createBoard, cellXY, cellAt, boardSize, placeAll, selectedIds, setSelected,
   clearSelection, cycleColor, moveTiles, snapSingle, snapGroup, enableSnap,
-  disableSnap, rescale, tilesInRect,
+  disableSnap, rescale, tilesInRect, placeStart,
 } from '../../src/board.js';
 
 const WORDS = ['SOLE','SHIFT','CHECK','HEEL','PIKE','RAISE','TONGUE','ENTER',
@@ -200,4 +200,60 @@ test('rescale in snap mode re-homes tiles whose cell no longer exists', () => {
   rescale(b, C, small);
   assert.ok(b.tiles.every(t => t.cell < 20));
   assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
+});
+
+// Full-window canvas: grid spans every column that fits, inset by offsetX; free drag is
+// bounded by the whole canvas, not just the grid.
+const W = { tileW: 100, tileH: 100, gap: 10, rows: 5, cols: 8, offsetX: 15, canvasW: 900, canvasH: 540 };
+const wide = () => { const b = createBoard(WORDS); placeStart(b, W); return b; };
+
+test('wide canvas grid math', () => {
+  assert.deepEqual(cellXY(9, W), { x: 125, y: 110 });
+  assert.equal(cellAt(15 + 110 * 7 + 5, 0, W), 7);
+  assert.equal(cellAt(-500, 0, W), 0);
+  assert.deepEqual(boardSize(W), { w: 900, h: 540 });
+});
+
+test('placeStart centers the starting 4x4 in the wide grid', () => {
+  const b = wide();
+  assert.equal(cellOf(b, 'SOLE'), 2);
+  assert.equal(cellOf(b, 'PIKE'), 10);
+  assert.equal(cellOf(b, 'EYELET'), 29);
+  assert.deepEqual([b.tiles[0].x, b.tiles[0].y], [235, 0]);
+});
+
+test('placeStart with 4 columns matches the plain layout', () => {
+  const b = createBoard(WORDS); placeStart(b, C);
+  assert.deepEqual(b.tiles.map(t => t.cell), [...Array(16).keys()]);
+});
+
+test('moveTiles is bounded by the whole canvas', () => {
+  const b = wide();
+  moveTiles(b, new Map([[0, { x: 235, y: 0 }]]), 9999, 9999, W);
+  assert.deepEqual([b.tiles[0].x, b.tiles[0].y], [800, 440]);
+});
+
+test('snapSingle into a far column of the wide grid', () => {
+  const b = wide();
+  Object.assign(b.tiles[0], cellXY(7, W));
+  snapSingle(b, 0, W);
+  assert.equal(cellOf(b, 'SOLE'), 7);
+});
+
+test('rescale snap mode re-homes tiles when the column count changes', () => {
+  const b = wide();
+  Object.assign(b.tiles[0], cellXY(7, W)); snapSingle(b, 0, W);
+  const narrow = { tileW: 100, tileH: 100, gap: 10, rows: 5, cols: 4, offsetX: 0, canvasW: 430, canvasH: 540 };
+  rescale(b, W, narrow);
+  assert.ok(b.tiles.every(t => t.cell >= 0 && t.cell < 20));
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
+});
+
+test('rescale free mode keeps tiles inside a smaller canvas', () => {
+  const b = wide();
+  disableSnap(b);
+  Object.assign(b.tiles[0], { x: 800, y: 440 });
+  const narrow = { tileW: 100, tileH: 100, gap: 10, rows: 5, cols: 4, offsetX: 0, canvasW: 430, canvasH: 540 };
+  rescale(b, W, narrow);
+  assert.ok(b.tiles.every(t => t.x >= 0 && t.x <= 330 && t.y >= 0 && t.y <= 440));
 });
