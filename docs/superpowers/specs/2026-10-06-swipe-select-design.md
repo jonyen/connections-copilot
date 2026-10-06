@@ -34,6 +34,10 @@ the current one-tile-at-a-time behavior without leaving the page.
 | Tap empty board | any | Clear selection. |
 | `Esc` | keyboard | Clear selection. |
 
+The board sits inside a stage with 20 px of padding on every side. With
+snap-to-grid on, the grid is full, so the padding is where a mouse marquee
+starts.
+
 Touch does not get a marquee: on a phone the board has little empty space, so
 a touch drag on empty board space does nothing, as today.
 
@@ -41,8 +45,9 @@ a touch drag on empty board space does nothing, as today.
 
 Dragging any selected tile moves every selected tile by the same delta,
 preserving relative layout. With snap-to-grid on, on release the selection is
-laid out in reading order into consecutive grid cells starting at the cell under
-the dragged tile, displacing other tiles into the vacated cells.
+laid out in reading order into consecutive grid cells, positioned so the dragged
+tile lands in the cell under it (clamped so the run fits in the 16 cells).
+Tiles displaced from those cells move into the vacated cells, in reading order.
 
 ### Selected-state visuals
 
