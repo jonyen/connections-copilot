@@ -8,6 +8,8 @@ import { loadPuzzle, puzzleLabel } from './puzzle.js';
 const SAMPLE_WORDS = ['SOLE', 'SHIFT', 'CHECK', 'HEEL', 'PIKE', 'RAISE', 'TONGUE', 'ENTER',
   'FOLD', 'CARP', 'LACE', 'ESCAPE', 'TAB', 'CALL', 'PERCH', 'EYELET'];
 let words = SAMPLE_WORDS;
+let puzzle = null;   // today's puzzle once loaded
+let touched = false; // user has changed the board since the last build
 const MAX_W = 560;
 const GAP = 8;
 
@@ -35,6 +37,8 @@ function metrics() {
 
 function build() {
   board = createBoard(words);
+  touched = false;
+  setLabel('');
   m = metrics();
   for (const el of tileEls) el.remove();
   tileEls = board.tiles.map(t => {
@@ -78,6 +82,7 @@ function showMarquee(r) {
 
 function apply(intents) {
   for (const i of intents) {
+    if (i.type !== 'armLongPress') touched = true;
     switch (i.type) {
       case 'armLongPress':
         clearTimeout(timer);
@@ -175,9 +180,16 @@ window.addEventListener('resize', () => {
 });
 
 build();
+function setLabel(suffix) {
+  document.getElementById('puzzle-label').textContent =
+    puzzle ? puzzleLabel(puzzle) + suffix : 'Sample board';
+}
+
 loadPuzzle().then(p => {
   if (!p) return;
+  puzzle = p;
   words = p.words;
-  document.getElementById('puzzle-label').textContent = puzzleLabel(p);
-  build();
+  // Never rebuild under the user: once they've touched the board, Reset loads the puzzle.
+  if (touched || gestures.state !== 'idle') setLabel(' · Reset to load');
+  else build();
 });

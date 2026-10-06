@@ -180,3 +180,23 @@ test('sample board label when puzzle.json is missing', async ({ page }) => {
   await expect(page.locator('#puzzle-label')).toHaveText('Sample board');
   await expect(tile(page, 'SOLE')).toHaveCount(1);
 });
+
+test('late puzzle.json does not wipe a board the user already touched', async ({ page }) => {
+  const words = ['PIKE', 'HEEL', 'SHIFT', 'SOLE', 'CHECK', 'ENTER', 'TONGUE', 'RAISE',
+    'FOLD', 'CARP', 'ESCAPE', 'CALL', 'LACE', 'TAB', 'PERCH', 'EYELET'];
+  let release;
+  const gate = new Promise(r => { release = r; });
+  await page.unrouteAll();
+  await page.route('**/puzzle.json', async r => { await gate; await r.fulfill({ json: { id: 999, date: '2026-01-02', words } }); });
+  await page.goto('/');
+  await tile(page, 'SOLE').click();
+  const before = await boxes(page);
+  release();
+  await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2 · Reset to load');
+  await expect(tile(page, 'SOLE')).toHaveAttribute('data-color', '1');
+  expect(await boxes(page)).toEqual(before);
+  await page.locator('#reset').click();
+  await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
+  await expect(tile(page, 'SOLE')).toHaveAttribute('data-color', '0');
+  expect(Object.keys(await boxes(page))[0]).toBe('PIKE');
+});
