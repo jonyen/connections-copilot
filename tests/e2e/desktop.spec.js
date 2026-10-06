@@ -273,3 +273,18 @@ test('moved tiles stay on top of the tiles they were dropped on', async ({ page 
   expect(await topWordAt({ x: fold.x + 10, y: fold.y })).toBe('SOLE');
   expect(sole.y).toBeLessThan(fold.y);
 });
+
+test('snap keeps a vertical pair vertical when the group is dragged', async ({ page }) => {
+  await page.locator('#snap').check();
+  await sweep(page, ['SOLE', 'PIKE']); // column 0, rows 0-1
+  const before = await boxes(page);
+  const s = await center(page, 'SOLE');
+  const pitch = (await center(page, 'PIKE')).y - s.y;  // one row
+  const check = await center(page, 'CHECK');
+  await quickDrag(page, 'SOLE', { x: check.x, y: s.y + 4 * pitch }); // 2 columns right, 4 rows down
+  await page.waitForTimeout(250);
+  const after = await boxes(page);
+  expect(after.PIKE.x).toBe(after.SOLE.x);              // still one above the other
+  expect(after.PIKE.y).toBeGreaterThan(after.SOLE.y);
+  expect(after.SOLE.x).toBe(before.CHECK.x);            // landed in CHECK's column
+});

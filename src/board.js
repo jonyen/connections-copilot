@@ -90,13 +90,20 @@ export function snapSingle(board, id, m) {
   placeAll(board, m);
 }
 
+// The group keeps its shape: every tile moves by the row/column offset the dragged
+// tile moved, clamped so the whole shape stays on the grid. Tiles already sitting in
+// the target cells move into the cells the group left, in reading order.
 export function snapGroup(board, ids, anchorId, m) {
-  const n = ids.length;
-  const group = ids.map(id => board.tiles[id]).sort((a, b) => a.cell - b.cell);
+  const cols = colsOf(m), rows = rowsOf(m);
+  const rc = cell => ({ r: Math.floor(cell / cols), c: cell % cols });
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const group = ids.map(id => board.tiles[id]);
   const anchor = board.tiles[anchorId];
-  const anchorIndex = group.indexOf(anchor);
-  const start = Math.max(0, Math.min(totalCells(m) - n, cellAt(anchor.x, anchor.y, m) - anchorIndex));
-  const targets = Array.from({ length: n }, (_, i) => start + i);
+  const from = rc(anchor.cell), to = rc(cellAt(anchor.x, anchor.y, m));
+  const pos = group.map(t => rc(t.cell));
+  const dr = clamp(to.r - from.r, -Math.min(...pos.map(p => p.r)), rows - 1 - Math.max(...pos.map(p => p.r)));
+  const dc = clamp(to.c - from.c, -Math.min(...pos.map(p => p.c)), cols - 1 - Math.max(...pos.map(p => p.c)));
+  const targets = pos.map(p => (p.r + dr) * cols + p.c + dc);
   const targetSet = new Set(targets);
   const idSet = new Set(ids);
   const vacated = group.map(t => t.cell).filter(c => !targetSet.has(c)).sort((a, b) => a - b);

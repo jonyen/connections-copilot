@@ -89,12 +89,39 @@ test('snapGroup lands dragged tile under pointer, displaced fill vacated', () =>
   assert.deepEqual(cells, [...Array(16).keys()]);
 });
 
-test('snapGroup orders group by original cell, not by id', () => {
+test('snapGroup keeps the shape, clamped so it stays on the grid', () => {
   const b = fresh();
-  Object.assign(b.tiles[12], cellXY(0, M)); // drag TAB (cell 12) to cell 0
-  snapGroup(b, [5, 12], 12, M); // RAISE cell 5, TAB cell 12; TAB is 2nd in reading order
-  assert.equal(cellOf(b, 'RAISE'), 0); // anchor index 1 at cell 0 → start clamps to 0
-  assert.equal(cellOf(b, 'TAB'), 1);
+  Object.assign(b.tiles[12], cellXY(0, M)); // drag TAB (r3c0) toward cell 0 with RAISE (r1c1)
+  snapGroup(b, [5, 12], 12, M);             // wanted shift -3 rows; RAISE can only rise 1
+  assert.equal(cellOf(b, 'RAISE'), 1);
+  assert.equal(cellOf(b, 'TAB'), 8);
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
+});
+
+test('snapGroup keeps a vertical pair vertical', () => {
+  const b = canvas();                        // 4 cols x 7 rows
+  Object.assign(b.tiles[0], cellXY(18, C));  // SOLE (r0c0) dragged to r4c2, PIKE (r1c0) below it
+  snapGroup(b, [0, 4], 0, C);
+  assert.equal(cellOf(b, 'SOLE'), 18);
+  assert.equal(cellOf(b, 'PIKE'), 22);
+});
+
+test('snapGroup keeps a diagonal pair diagonal', () => {
+  const b = canvas();
+  Object.assign(b.tiles[0], cellXY(20, C));  // SOLE (r0c0) to r5c0, RAISE (r1c1) follows
+  snapGroup(b, [0, 5], 0, C);
+  assert.equal(cellOf(b, 'SOLE'), 20);
+  assert.equal(cellOf(b, 'RAISE'), 25);
+});
+
+test('snapGroup keeps the shape across columns in a wide grid', () => {
+  const b = wide();                           // 8 cols; start 4x4 in cols 2-5
+  Object.assign(b.tiles[0], cellXY(24, W));   // SOLE (r0c2) to r3c0
+  snapGroup(b, [0, 4, 5], 0, W);              // SOLE, PIKE (r1c2), RAISE (r1c3)
+  assert.equal(cellOf(b, 'SOLE'), 24);
+  assert.equal(cellOf(b, 'PIKE'), 32);
+  assert.equal(cellOf(b, 'RAISE'), 33);
+  assert.equal(new Set(b.tiles.map(t => t.cell)).size, 16);
 });
 
 test('snapGroup clamps at board end', () => {

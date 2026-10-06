@@ -169,3 +169,6 @@ request to match Connections Copilot's canvas:
 - (2026-10-06) The canvas spans the full window width, not a 4-column strip: the
   snap grid has as many columns as fit, centered, and the starting 4×4 is centered
   in it. Free drag is bounded by the whole stage.
+- (2026-10-06) Group snap keeps the selection's shape: every tile shifts by the
+  dragged tile's row/column offset, clamped so the shape stays on the grid
+  (supersedes "consecutive cells in reading order").
