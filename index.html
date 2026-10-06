@@ -73,7 +73,7 @@
 
   #stage { flex: 1; min-height: 0; position: relative; padding: 16px 24px; overflow: hidden; touch-action: none;
            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  #board { position: relative; margin: 0 auto; }
+  #board { position: relative; margin: 0 auto; isolation: isolate; } /* tile z-indexes stay inside the board */
   .tile { position: absolute; left: 0; top: 0; display: grid; place-items: center; text-align: center;
           padding: 0 4px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--tile-edge);
           font-family: var(--font-display); font-size: inherit; font-weight: 700; line-height: 1.1; text-transform: uppercase;
@@ -84,9 +84,9 @@
   .tile[data-color="3"] { background: var(--c3); color: var(--on-color); }
   .tile[data-color="4"] { background: var(--c4); color: var(--on-color); }
   .tile[data-selected="true"] { outline: 1px solid var(--outline); outline-offset: 1px; }
-  .tile.dragging { transition: none; z-index: 2; cursor: grabbing; }
+  .tile.dragging { transition: none; cursor: grabbing; }
   #marquee { position: absolute; border: 1.5px dashed var(--outline); background: var(--marquee);
-             pointer-events: none; z-index: 3; }
+             pointer-events: none; z-index: 1000000; }
 
   dialog { max-width: min(520px, calc(100% - 32px)); box-sizing: border-box; border: 1px solid var(--line);
            border-radius: 12px; padding: 24px; background: var(--bg); color: var(--fg); }

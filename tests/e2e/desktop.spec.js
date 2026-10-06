@@ -257,3 +257,19 @@ test('canvas spans the full window width; tiles can be parked at the far edges',
   const right = await tile(page, 'HEEL').boundingBox();
   expect(right.x + right.width).toBeGreaterThan(board.x + board.width - 5);
 });
+
+test('moved tiles stay on top of the tiles they were dropped on', async ({ page }) => {
+  const topWordAt = p => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.tile')?.dataset.word, p);
+  // single tile: drop SHIFT half over PIKE (later in DOM order, so it would cover SHIFT)
+  const pike = await center(page, 'PIKE');
+  await quickDrag(page, 'SHIFT', { x: pike.x + 20, y: pike.y });
+  expect(await topWordAt({ x: pike.x + 10, y: pike.y })).toBe('SHIFT');
+  // group: select the top row and drop it half over the third row
+  await page.locator('#reset').click();
+  await sweep(page, ROW0);
+  const sole = await center(page, 'SOLE');
+  const fold = await center(page, 'FOLD');
+  await quickDrag(page, 'SOLE', { x: fold.x + 20, y: fold.y });
+  expect(await topWordAt({ x: fold.x + 10, y: fold.y })).toBe('SOLE');
+  expect(sole.y).toBeLessThan(fold.y);
+});

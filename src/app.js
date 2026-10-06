@@ -24,6 +24,7 @@ let mode = 'proposed';
 let board, m, tileEls = [];
 let drag = null; // { anchorId, group, origins: Map<id,{x,y}> }
 let timer = null;
+let zTop = 0; // stacking: the most recently moved tiles sit on top
 
 const gestures = createGestures({
   proposed: () => mode === 'proposed',
@@ -85,6 +86,7 @@ function render() {
     el.style.width = `${m.tileW}px`;
     el.style.height = `${m.tileH}px`;
     el.style.transform = `translate(${t.x}px, ${t.y}px)`;
+    el.style.zIndex = t.z ?? '';
     el.dataset.color = t.color;
     el.dataset.selected = t.selected;
     el.classList.toggle('dragging', !!drag && drag.origins.has(t.id));
@@ -112,6 +114,7 @@ function apply(intents) {
       case 'tap': cycleColor(board, i.tileId); break;
       case 'dragStart': {
         const ids = i.group ? selectedIds(board) : [i.tileId];
+        for (const id of ids) board.tiles[id].z = ++zTop;
         drag = {
           anchorId: i.tileId,
           group: i.group,
