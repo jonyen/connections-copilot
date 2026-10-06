@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swipe-select Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;800&display=swap">
+<style>
+  /* Layout: one narrow reading column; pitch, then controls, then the board as the live demo. */
+  :root {
+    --bg: #fafaf7;
+    --fg: #1d1d1b;
+    --muted: #5f5e58;
+    --line: #dcdbd3;
+    --tile: #efefe6;
+    --tile-fg: #1d1d1b;
+    --outline: #2a4bd7;
+    --marquee: rgb(42 75 215 / .12);
+    --c1: #f9df6d; --c2: #a0c35a; --c3: #b0c4ef; --c4: #ba81c5;
+    --on-color: #111;
+    --font-display: "Libre Franklin", "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif;
+    --font-body: "Libre Franklin", -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --fg: #ecebe6; --muted: #a3a29b; --line: #34332f;
+      --tile: #2e2d2a; --tile-fg: #ecebe6; --outline: #8aa5ff; --marquee: rgb(138 165 255 / .16);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413; --fg: #ecebe6; --muted: #a3a29b; --line: #34332f;
+    --tile: #2e2d2a; --tile-fg: #ecebe6; --outline: #8aa5ff; --marquee: rgb(138 165 255 / .16);
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-body); margin: 0; }
+  main { max-width: 600px; margin: 0 auto; padding: 32px 16px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  h1 { font: 800 clamp(1.5rem, 5vw, 2rem)/1.15 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+  .disclaimer { margin: 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .pitch { display: grid; gap: 6px; max-width: 65ch; }
+  .pitch p { margin: 0; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+              padding-block: 12px; border-block: 1px solid var(--line); }
+  fieldset { border: 0; margin: 0; padding: 0; display: flex; gap: 4px; }
+  legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .seg label { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-weight: 600; }
+  .seg input { position: absolute; opacity: 0; }
+  .seg label:has(input:checked) { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--outline); outline-offset: 2px; }
+  .check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  button { font: 600 14px var(--font-body); color: var(--fg); background: transparent;
+           border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; margin-left: auto; }
+  button:focus-visible { outline: 2px solid var(--outline); outline-offset: 2px; }
+  .status { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+            font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #count { visibility: hidden; color: var(--outline); font-weight: 600; }
+  #count.show { visibility: visible; }
+
+  #stage { position: relative; padding: 20px; touch-action: none;
+           user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #board { position: relative; margin: 0 auto; }
+  .tile { position: absolute; left: 0; top: 0; display: grid; place-items: center; text-align: center;
+          padding: 0 4px; box-sizing: border-box; border-radius: 6px;
+          font: 800 clamp(11px, 3.4vw, 16px)/1.1 var(--font-display); text-transform: uppercase;
+          background: var(--tile); color: var(--tile-fg); cursor: grab; overflow-wrap: anywhere;
+          transition: transform 150ms ease, box-shadow 150ms ease, scale 150ms ease; }
+  .tile[data-color="1"] { background: var(--c1); color: var(--on-color); }
+  .tile[data-color="2"] { background: var(--c2); color: var(--on-color); }
+  .tile[data-color="3"] { background: var(--c3); color: var(--on-color); }
+  .tile[data-color="4"] { background: var(--c4); color: var(--on-color); }
+  .tile[data-selected="true"] { outline: 3px solid var(--outline); outline-offset: 2px;
+          box-shadow: 0 6px 14px rgb(0 0 0 / .25); scale: 1.04; z-index: 1; }
+  .tile.dragging { transition: none; z-index: 2; cursor: grabbing; }
+  #marquee { position: absolute; border: 1.5px dashed var(--outline); background: var(--marquee);
+             pointer-events: none; z-index: 3; }
+
+  .legend { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+  .legend b { color: var(--fg); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="pitch">
+    <p class="disclaimer">Unofficial prototype, not affiliated with Connections Copilot or The New York Times.</p>
+    <h1>Proposal: swipe-select for Connections Copilot</h1>
+    <p>Today, grouping a puzzle means dragging tiles one at a time — four drags per group, sixteen per puzzle.</p>
+    <p>Proposed: long-press a tile and sweep across others to select them, then drag or color them together.</p>
+    <p>Existing gestures are unchanged: tap still changes color, and a quick drag still moves one tile.</p>
+  </header>
+
+  <div class="controls">
+    <fieldset class="seg">
+      <legend>Behavior</legend>
+      <label><input type="radio" name="mode" id="mode-current" value="current"> Current</label>
+      <label><input type="radio" name="mode" id="mode-proposed" value="proposed" checked> Proposed</label>
+    </fieldset>
+    <label class="check"><input type="checkbox" id="snap" checked> Snap to grid</label>
+    <button id="reset" type="button">Reset</button>
+  </div>
+
+  <section>
+    <div class="status"><span id="count" aria-live="polite">0 selected</span></div>
+    <div id="stage">
+      <div id="board"><div id="marquee" hidden></div></div>
+    </div>
+  </section>
+
+  <ul class="legend">
+    <li><b>Long-press + sweep</b> — select several tiles (touch or mouse)</li>
+    <li><b>Drag on empty space</b> — rectangle select (mouse); Shift adds</li>
+    <li><b>Drag a selected tile</b> — moves the whole selection</li>
+    <li><b>Tap a selected tile</b> — colors the whole selection</li>
+    <li><b>Tap empty space or press Esc</b> — clear selection</li>
+  </ul>
+</main>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
