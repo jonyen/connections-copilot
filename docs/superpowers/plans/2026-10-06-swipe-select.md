@@ -18,7 +18,7 @@
 - Touch never starts a marquee.
 - `touch-action: none` on the stage only; page outside the stage still scrolls.
 - Page labelled "unofficial prototype, not affiliated with Connections Copilot or The New York Times"; no Connections Copilot logo, no NYT marks.
-- Sample words are invented (below), not a real NYT puzzle.
+- Board shows the day's NYT words from `puzzle.json` (Task 5); invented sample words (below) are the fallback and the fixed e2e board. Never show category titles or groupings.
 - Light and dark themes; works at 360 px wide with 16 px side gutter, no horizontal scroll.
 - `navigator.vibrate` optional; absence is silent.
 
@@ -44,6 +44,10 @@
 | `tests/unit/gestures.test.js` | `gestures.js` tests |
 | `tests/e2e/desktop.spec.js` | Mouse flows |
 | `tests/e2e/touch.spec.js` | Touch flows via CDP touch events |
+| `src/puzzle.js` | Eastern date, NYT JSON → `{id,date,words}`, page-side loader |
+| `scripts/fetch-puzzle.mjs` | Writes `puzzle.json` for today |
+| `tests/unit/puzzle.test.js` | `puzzle.js` tests |
+| `tests/fixtures/nyt-sample.json` | NYT response shape, invented words, no real answers |
 
 Sample words (reading order, cell 0–15). Groups: fish SOLE PIKE CARP PERCH · shoe parts HEEL TONGUE LACE EYELET · keys SHIFT ENTER ESCAPE TAB · poker CHECK RAISE FOLD CALL.
 
@@ -98,6 +102,7 @@ TAB   CALL   PERCH   EYELET
 node_modules/
 test-results/
 playwright-report/
+puzzle.json
 ```
 
 - [ ] **Step 2: Write the failing tests**
@@ -747,6 +752,7 @@ async function quickDrag(page, fromWord, to) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/puzzle.json', r => r.fulfill({ status: 404 })); // fixed sample board
   await page.goto('/');
   await page.waitForTimeout(250); // let transform transitions settle
 });
@@ -1180,6 +1186,7 @@ async function finger(page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/puzzle.json', r => r.fulfill({ status: 404 })); // fixed sample board
   await page.goto('/');
   await page.waitForTimeout(250);
 });
@@ -1260,22 +1267,298 @@ git commit -m "test: touch e2e for sweep, quick drag, no-marquee, long-press hyg
 
 ---
 
-### Task 5: Publish
+### Task 5: Today's puzzle
+
+**Files:**
+- Create: `src/puzzle.js`, `scripts/fetch-puzzle.mjs`, `tests/unit/puzzle.test.js`, `tests/fixtures/nyt-sample.json`
+- Modify: `src/app.js`, `index.html`, `tests/e2e/desktop.spec.js`, `package.json`
+
+**Interfaces:**
+- Consumes: `build()` and `WORDS` in `src/app.js` (Task 3).
+- Produces (from `src/puzzle.js`):
+  - `easternDate(now: Date = new Date()) → 'YYYY-MM-DD'`
+  - `parsePuzzle(nyt: object) → { id: number, date: string, words: string[16] }` — throws `Error` on invalid
+  - `validPuzzleFile(p: unknown) → boolean`
+  - `loadPuzzle(fetchFn = fetch, url = 'puzzle.json') → Promise<{id,date,words} | null>` — never rejects
+  - `puzzleLabel(p) → string`, e.g. `"Connections #1316 · Oct 6"`
+- DOM: `#puzzle-label` text = `puzzleLabel(p)` or `"Sample board"`.
+
+- [ ] **Step 1: Fixture**
+
+`tests/fixtures/nyt-sample.json` (same shape as the live response observed 2026-10-06; words invented):
+```json
+{
+  "status": "OK", "id": 999, "print_date": "2026-01-02", "editor": "Test",
+  "categories": [
+    { "title": "FISH", "cards": [
+      { "content": "SOLE", "position": 3 }, { "content": "PIKE", "position": 0 },
+      { "content": "CARP", "position": 9 }, { "content": "PERCH", "position": 14 } ] },
+    { "title": "SHOE PARTS", "cards": [
+      { "content": "HEEL", "position": 1 }, { "content": "TONGUE", "position": 6 },
+      { "content": "LACE", "position": 12 }, { "content": "EYELET", "position": 15 } ] },
+    { "title": "KEYS", "cards": [
+      { "content": "SHIFT", "position": 2 }, { "content": "ENTER", "position": 5 },
+      { "content": "ESCAPE", "position": 10 }, { "content": "TAB", "position": 13 } ] },
+    { "title": "POKER", "cards": [
+      { "content": "CHECK", "position": 4 }, { "content": "RAISE", "position": 7 },
+      { "content": "FOLD", "position": 8 }, { "content": "CALL", "position": 11 } ] }
+  ]
+}
+```
+
+- [ ] **Step 2: Write the failing tests**
+
+`tests/unit/puzzle.test.js`:
+```js
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { easternDate, parsePuzzle, validPuzzleFile, loadPuzzle, puzzleLabel } from '../../src/puzzle.js';
+
+const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/nyt-sample.json', import.meta.url)));
+
+test('easternDate uses America/New_York', () => {
+  assert.equal(easternDate(new Date('2026-10-06T03:30:00Z')), '2026-10-05'); // 23:30 EDT
+  assert.equal(easternDate(new Date('2026-10-06T04:30:00Z')), '2026-10-06'); // 00:30 EDT
+  assert.equal(easternDate(new Date('2026-01-15T04:30:00Z')), '2026-01-14'); // 23:30 EST
+});
+
+test('parsePuzzle orders words by position and drops answers', () => {
+  const p = parsePuzzle(fixture());
+  assert.deepEqual(p, {
+    id: 999, date: '2026-01-02',
+    words: ['PIKE', 'HEEL', 'SHIFT', 'SOLE', 'CHECK', 'ENTER', 'TONGUE', 'RAISE',
+      'FOLD', 'CARP', 'ESCAPE', 'CALL', 'LACE', 'TAB', 'PERCH', 'EYELET'],
+  });
+  assert.equal(JSON.stringify(p).includes('FISH'), false);
+});
+
+test('parsePuzzle rejects bad data', () => {
+  const dup = fixture(); dup.categories[0].cards[0].position = 0;
+  assert.throws(() => parsePuzzle(dup), /position/);
+  const short = fixture(); short.categories.pop();
+  assert.throws(() => parsePuzzle(short), /16/);
+  const blank = fixture(); blank.categories[0].cards[0].content = ' ';
+  assert.throws(() => parsePuzzle(blank), /content/);
+  assert.throws(() => parsePuzzle({ status: 'ERROR' }), /status/);
+});
+
+test('validPuzzleFile', () => {
+  assert.equal(validPuzzleFile(parsePuzzle(fixture())), true);
+  assert.equal(validPuzzleFile({ id: 1, date: '2026-01-02', words: ['A'] }), false);
+  assert.equal(validPuzzleFile(null), false);
+});
+
+test('loadPuzzle returns parsed file, or null on any failure', async () => {
+  const good = parsePuzzle(fixture());
+  const ok = async () => ({ ok: true, json: async () => good });
+  assert.deepEqual(await loadPuzzle(ok), good);
+  assert.equal(await loadPuzzle(async () => ({ ok: false, json: async () => good })), null);
+  assert.equal(await loadPuzzle(async () => { throw new TypeError('offline'); }), null);
+  assert.equal(await loadPuzzle(async () => ({ ok: true, json: async () => ({ words: [] }) })), null);
+  assert.equal(await loadPuzzle(async () => ({ ok: true, json: async () => { throw new SyntaxError(); } })), null);
+});
+
+test('puzzleLabel', () => {
+  assert.equal(puzzleLabel({ id: 1316, date: '2026-10-06' }), 'Connections #1316 · Oct 6');
+});
+```
+
+- [ ] **Step 3: Run to verify failure**
+
+Run: `npm test`
+Expected: `puzzle.test.js` FAIL — cannot find `src/puzzle.js`.
+
+- [ ] **Step 4: Implement `src/puzzle.js`**
+
+```js
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function easternDate(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+}
+
+export function parsePuzzle(nyt) {
+  if (nyt?.status !== 'OK') throw new Error(`bad status: ${nyt?.status}`);
+  const cards = (nyt.categories ?? []).flatMap(c => c.cards ?? []);
+  if (cards.length !== 16) throw new Error(`expected 16 cards, got ${cards.length}`);
+  const words = new Array(16);
+  for (const c of cards) {
+    if (typeof c.content !== 'string' || !c.content.trim()) throw new Error('empty card content');
+    if (!Number.isInteger(c.position) || c.position < 0 || c.position > 15 || words[c.position]) {
+      throw new Error(`bad or duplicate position: ${c.position}`);
+    }
+    words[c.position] = c.content.trim().toUpperCase();
+  }
+  if (!Number.isInteger(nyt.id) || !DATE_RE.test(nyt.print_date)) throw new Error('bad id or date');
+  return { id: nyt.id, date: nyt.print_date, words };
+}
+
+export function validPuzzleFile(p) {
+  return !!p && Number.isInteger(p.id) && DATE_RE.test(p.date) && Array.isArray(p.words) &&
+    p.words.length === 16 && p.words.every(w => typeof w === 'string' && w.trim() !== '');
+}
+
+export async function loadPuzzle(fetchFn = fetch, url = 'puzzle.json') {
+  try {
+    const res = await fetchFn(url, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const p = await res.json();
+    return validPuzzleFile(p) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+export function puzzleLabel(p) {
+  const d = new Date(`${p.date}T12:00:00Z`);
+  const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `Connections #${p.id} · ${md}`;
+}
+```
+
+- [ ] **Step 5: Run unit tests**
+
+Run: `npm test`
+Expected: all PASS.
+
+- [ ] **Step 6: Fetch script**
+
+`scripts/fetch-puzzle.mjs`:
+```js
+#!/usr/bin/env node
+// Writes puzzle.json (id, date, 16 words in NYT starting order) for today's
+// NYT Connections, Eastern time. Answers are not written. Usage:
+//   node scripts/fetch-puzzle.mjs [YYYY-MM-DD]
+import { writeFileSync, renameSync } from 'node:fs';
+import { easternDate, parsePuzzle } from '../src/puzzle.js';
+
+const date = process.argv[2] ?? easternDate();
+const url = `https://www.nytimes.com/svc/connections/v2/${date}.json`;
+const res = await fetch(url);
+if (!res.ok) {
+  console.error(`fetch ${url}: HTTP ${res.status}`);
+  process.exit(1);
+}
+let puzzle;
+try {
+  puzzle = parsePuzzle(await res.json());
+} catch (err) {
+  console.error(`invalid puzzle from ${url}: ${err.message}`);
+  process.exit(1);
+}
+const out = new URL('../puzzle.json', import.meta.url);
+const tmp = new URL('../puzzle.json.tmp', import.meta.url);
+writeFileSync(tmp, JSON.stringify(puzzle, null, 2) + '\n');
+renameSync(tmp, out);
+console.log(`wrote puzzle.json: #${puzzle.id} ${puzzle.date}`);
+```
+
+Add to `package.json` scripts: `"fetch-puzzle": "node scripts/fetch-puzzle.mjs"`. Add `puzzle.json.tmp` to `.gitignore`.
+
+Run: `npm run fetch-puzzle && cat puzzle.json`
+Expected: `wrote puzzle.json: #<id> <today Eastern>`; file has `id`, `date`, 16 `words`, no category titles.
+
+Run: `node scripts/fetch-puzzle.mjs 1999-01-01; echo "exit $?"; cat puzzle.json | head -3`
+Expected: non-zero exit, error line on stderr, previous `puzzle.json` unchanged.
+
+- [ ] **Step 7: Wire into the page — failing e2e first**
+
+Append to `tests/e2e/desktop.spec.js`:
+```js
+test.describe('with puzzle.json', () => {
+  const words = ['PIKE', 'HEEL', 'SHIFT', 'SOLE', 'CHECK', 'ENTER', 'TONGUE', 'RAISE',
+    'FOLD', 'CARP', 'ESCAPE', 'CALL', 'LACE', 'TAB', 'PERCH', 'EYELET'];
+  test.beforeEach(async ({ page }) => {
+    await page.unrouteAll();
+    await page.route('**/puzzle.json', r => r.fulfill({ json: { id: 999, date: '2026-01-02', words } }));
+    await page.goto('/');
+  });
+
+  test('shows the puzzle words in starting order and its label', async ({ page }) => {
+    await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
+    const pos = await boxes(page);
+    const order = Object.entries(pos)
+      .sort(([, a], [, b]) => (a.y - b.y) || (a.x - b.x)).map(([w]) => w);
+    expect(order).toEqual(words);
+  });
+
+  test('reset keeps the puzzle words', async ({ page }) => {
+    await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
+    await page.locator('#reset').click();
+    await expect(tile(page, 'PIKE')).toHaveCount(1);
+  });
+});
+
+test('sample board label when puzzle.json is missing', async ({ page }) => {
+  await expect(page.locator('#puzzle-label')).toHaveText('Sample board');
+  await expect(tile(page, 'SOLE')).toHaveCount(1);
+});
+```
+
+Run: `npx playwright test --project=desktop`
+Expected: the 3 new tests FAIL (`#puzzle-label` not found).
+
+- [ ] **Step 8: Implement page changes**
+
+`index.html`: directly above `<div id="count" ...>` add:
+```html
+    <div id="puzzle-label">Sample board</div>
+```
+
+`src/app.js`:
+- Add import: `import { loadPuzzle, puzzleLabel } from './puzzle.js';`
+- Rename the constant `WORDS` to `SAMPLE_WORDS` and add `let words = SAMPLE_WORDS;` after it.
+- In `build()`, change `board = createBoard(WORDS);` to `board = createBoard(words);`.
+- Replace the final `build();` with:
+```js
+build();
+loadPuzzle().then(p => {
+  if (!p) return;
+  words = p.words;
+  document.getElementById('puzzle-label').textContent = puzzleLabel(p);
+  build();
+});
+```
+
+- [ ] **Step 9: Full suite**
+
+Run: `npm test && npx playwright test`
+Expected: all unit tests, 14 desktop tests, 5 touch tests PASS.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/puzzle.js scripts/fetch-puzzle.mjs tests/unit/puzzle.test.js tests/fixtures/nyt-sample.json \
+  src/app.js index.html tests/e2e/desktop.spec.js package.json .gitignore
+git commit -m "feat: load today's NYT Connections words from puzzle.json, answers excluded"
+```
+
+---
+
+### Task 6: Publish
 
 **Files:** none created in the repo.
 
-- [ ] **Step 1: Publish the Artifact**
+- [ ] **Step 1: Refresh today's puzzle**
+
+Run: `npm run fetch-puzzle`
+Expected: `wrote puzzle.json: #<id> <today Eastern>`. If it fails, publish anyway (sample board) and tell the user.
+
+- [ ] **Step 2: Publish the Artifact**
 
 Call the Artifact tool:
 - `file_path`: `/Users/jyen/Projects/connections-swipe-select/index.html`
-- `files`: `{ "src/app.js": "src/app.js", "src/board.js": "src/board.js", "src/gestures.js": "src/gestures.js" }`
+- `files`: `{ "src/app.js": "src/app.js", "src/board.js": "src/board.js", "src/gestures.js": "src/gestures.js", "src/puzzle.js": "src/puzzle.js", "puzzle.json": "puzzle.json" }` (drop `puzzle.json` if Step 1 failed)
 - `icon`: `grid`
 - `description`: `Interactive prototype proposing swipe-select and group drag for a Connections planner.`
 
-- [ ] **Step 2: Smoke-check the published page**
+- [ ] **Step 3: Smoke-check the published page**
 
-Read it back with Artifact `action: "read"` and confirm the HTML references `src/app.js` and the three files are listed (`action: "list", scope: "files"`).
+Read it back with Artifact `action: "read"` and confirm the HTML references `src/app.js` and the published files are listed (`action: "list", scope: "files"`).
 
-- [ ] **Step 3: Hand off**
+- [ ] **Step 4: Hand off**
 
-Give the user the link and ask them to do the one manual check the spec requires: open it on their iPhone in Safari, long-press SOLE and sweep across the top row, then drag the selection. Report the result; do not send anything to the site's developer.
+Give the user the link and ask them to do the one manual check the spec requires: open it on their iPhone in Safari, long-press the first tile and sweep across the top row, then drag the selection. Report the result; do not send anything to the site's developer.

@@ -68,8 +68,10 @@ Layout, top to bottom:
 3. Mode toggle: **Current** / **Proposed**. Current disables long-press sweep,
    marquee and group drag, leaving only single drag and tap-to-color.
 4. Snap-to-grid toggle (default on, matching the site's common use).
-5. Board: 4×4 tiles of invented sample words (not a copied NYT puzzle), plus a
-   Reset button.
+5. Board: 4×4 tiles of the day's NYT Connections words in NYT's starting
+   positions (see "Today's puzzle"), falling back to invented sample words, plus
+   a Reset button. A label above the board names the puzzle ("Connections #1316
+   · Oct 6") or says "Sample board".
 6. Short gesture legend under the board.
 
 Branding: own neutral styling; does not use Connections Copilot's logo, name in
@@ -116,8 +118,25 @@ asserting:
 Plus one manual check on a real iPhone (Safari) before sending the link, since
 iOS long-press and vibration behavior can't be fully emulated.
 
+## Today's puzzle
+
+NYT serves `https://www.nytimes.com/svc/connections/v2/YYYY-MM-DD.json` without
+CORS headers, and Artifact pages cannot fetch arbitrary origins, so the page
+cannot fetch it live.
+
+- `scripts/fetch-puzzle.mjs` computes today's date in `America/New_York`, fetches
+  that JSON, and writes `puzzle.json` = `{id, date, words}` with `words` being the
+  16 card contents ordered by their `position` (0–15). Category titles and
+  groupings are dropped: the demo must not reveal answers. On HTTP error or
+  invalid data it exits non-zero and leaves any existing `puzzle.json` untouched.
+- The page fetches `puzzle.json` from its own origin. Missing or invalid file →
+  invented sample board; the page never fails to render.
+- Freshness: run the script and republish before sending the link. A scheduled
+  daily republish is deferred.
+- `puzzle.json` is generated, not committed.
+
 ## Out of scope
 
 - Patching or forking the real site.
 - Sending the email to the developer (the user sends it).
-- Persistence, puzzle fetching, sports edition.
+- Persistence, sports edition, live in-page puzzle fetching, scheduled republish.
