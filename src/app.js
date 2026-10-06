@@ -3,9 +3,11 @@ import {
   moveTiles, snapSingle, snapGroup, enableSnap, disableSnap, rescale, tilesInRect,
 } from './board.js';
 import { createGestures } from './gestures.js';
+import { loadPuzzle, puzzleLabel } from './puzzle.js';
 
-const WORDS = ['SOLE', 'SHIFT', 'CHECK', 'HEEL', 'PIKE', 'RAISE', 'TONGUE', 'ENTER',
+const SAMPLE_WORDS = ['SOLE', 'SHIFT', 'CHECK', 'HEEL', 'PIKE', 'RAISE', 'TONGUE', 'ENTER',
   'FOLD', 'CARP', 'LACE', 'ESCAPE', 'TAB', 'CALL', 'PERCH', 'EYELET'];
+let words = SAMPLE_WORDS;
 const MAX_W = 560;
 const GAP = 8;
 
@@ -32,7 +34,7 @@ function metrics() {
 }
 
 function build() {
-  board = createBoard(WORDS);
+  board = createBoard(words);
   m = metrics();
   for (const el of tileEls) el.remove();
   tileEls = board.tiles.map(t => {
@@ -173,3 +175,9 @@ window.addEventListener('resize', () => {
 });
 
 build();
+loadPuzzle().then(p => {
+  if (!p) return;
+  words = p.words;
+  document.getElementById('puzzle-label').textContent = puzzleLabel(p);
+  build();
+});

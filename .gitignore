@@ -2,3 +2,4 @@ node_modules/
 test-results/
 playwright-report/
 puzzle.json
+puzzle.json.tmp

@@ -151,3 +151,32 @@ test('no horizontal scroll at 360px', async ({ page }) => {
   // the resize handler re-lays the board asynchronously after the viewport change
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
+
+test.describe('with puzzle.json', () => {
+  const words = ['PIKE', 'HEEL', 'SHIFT', 'SOLE', 'CHECK', 'ENTER', 'TONGUE', 'RAISE',
+    'FOLD', 'CARP', 'ESCAPE', 'CALL', 'LACE', 'TAB', 'PERCH', 'EYELET'];
+  test.beforeEach(async ({ page }) => {
+    await page.unrouteAll();
+    await page.route('**/puzzle.json', r => r.fulfill({ json: { id: 999, date: '2026-01-02', words } }));
+    await page.goto('/');
+  });
+
+  test('shows the puzzle words in starting order and its label', async ({ page }) => {
+    await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
+    const pos = await boxes(page);
+    const order = Object.entries(pos)
+      .sort(([, a], [, b]) => (a.y - b.y) || (a.x - b.x)).map(([w]) => w);
+    expect(order).toEqual(words);
+  });
+
+  test('reset keeps the puzzle words', async ({ page }) => {
+    await expect(page.locator('#puzzle-label')).toHaveText('Connections #999 · Jan 2');
+    await page.locator('#reset').click();
+    await expect(tile(page, 'PIKE')).toHaveCount(1);
+  });
+});
+
+test('sample board label when puzzle.json is missing', async ({ page }) => {
+  await expect(page.locator('#puzzle-label')).toHaveText('Sample board');
+  await expect(tile(page, 'SOLE')).toHaveCount(1);
+});
