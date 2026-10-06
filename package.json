@@ -1,0 +1,9 @@
+{
+  "name": "connections-swipe-select",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/unit/*.test.js",
+    "e2e": "playwright test"
+  }
+}
