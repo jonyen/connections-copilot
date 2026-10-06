@@ -1,0 +1,10 @@
+{
+  "name": "connections",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+  // Only the page and its modules are published; repo internals never reach dist/.
+  "build": { "command": "npm run build" },
+  "assets": { "directory": "dist", "binding": "ASSETS" },
+  "routes": [{ "pattern": "connections.jonyen.com", "custom_domain": true }]
+}

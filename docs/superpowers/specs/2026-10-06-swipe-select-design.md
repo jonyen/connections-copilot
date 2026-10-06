@@ -140,3 +140,13 @@ cannot fetch it live.
 - Patching or forking the real site.
 - Sending the email to the developer (the user sends it).
 - Persistence, sports edition, live in-page puzzle fetching, scheduled republish.
+
+## Deployment (added 2026-10-06)
+
+Hosted at `https://connections.jonyen.com` (user chose a neutral hostname over
+`nytconnections`), replacing the Artifact publish. Cloudflare Worker `connections`:
+static assets from `dist/` (only `index.html` and `src/`, built by
+`npm run build`), plus a live `/puzzle.json` route that fetches today's NYT
+puzzle (Eastern date), strips it to `{id, date, words}`, and caches it at the
+edge keyed by date. NYT failure returns 503 and the page shows the sample board.
+`scripts/fetch-puzzle.mjs` remains for offline/local use. Deploy: `npm run deploy`.

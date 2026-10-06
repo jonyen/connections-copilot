@@ -5,7 +5,9 @@
   "scripts": {
     "test": "node --test tests/unit/*.test.js",
     "e2e": "playwright test",
-    "fetch-puzzle": "node scripts/fetch-puzzle.mjs"
+    "fetch-puzzle": "node scripts/fetch-puzzle.mjs",
+    "build": "rm -rf dist && mkdir dist && cp -R index.html src dist/",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"
