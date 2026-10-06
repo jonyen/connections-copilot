@@ -6,7 +6,7 @@
 <title>Swipe-select Proposal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;800&display=swap">
 <style>
   /* Layout: full-screen app. Slim bar on top; everything below is the canvas tiles move on. */
   :root {
@@ -44,7 +44,7 @@
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
          display: flex; flex-direction: column; overflow: hidden; }
 
-  .bar { display: grid; gap: 8px; padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  .bar { display: grid; gap: 8px; padding: calc(env(safe-area-inset-top, 0px) + 10px) 24px 10px;
          border-bottom: 1px solid var(--line); }
   .bar-row { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
   .bar-row:last-child { flex-wrap: wrap; row-gap: 6px; }
@@ -71,12 +71,12 @@
   button:focus-visible { outline: 2px solid var(--outline); outline-offset: 2px; }
   #about-btn { width: 28px; height: 28px; padding: 0; font-family: Georgia, serif; font-style: italic; }
 
-  #stage { flex: 1; min-height: 0; position: relative; padding: 12px; overflow: hidden; touch-action: none;
+  #stage { flex: 1; min-height: 0; position: relative; padding: 16px 24px; overflow: hidden; touch-action: none;
            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   #board { position: relative; margin: 0 auto; }
   .tile { position: absolute; left: 0; top: 0; display: grid; place-items: center; text-align: center;
           padding: 0 4px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--tile-edge);
-          font-family: var(--font-display); font-weight: 800; line-height: 1.1; text-transform: uppercase;
+          font-family: var(--font-display); font-size: inherit; font-weight: 700; line-height: 1.1; text-transform: uppercase;
           background: var(--tile); color: var(--tile-fg); cursor: grab;
           transition: transform 150ms ease, box-shadow 150ms ease, scale 150ms ease; }
   .tile[data-color="1"] { background: var(--c1); color: var(--on-color); }

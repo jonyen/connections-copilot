@@ -41,13 +41,14 @@ function metrics() {
   return { tileW: tile, tileH: tile, gap: GAP, rows };
 }
 
-// Shrink long words to fit one line in a square tile, measured in the tile's real font.
+// One font size for every tile, like NYT Connections: the size the longest word
+// (by measured width in the tile font) needs to fit on one line.
 const measureCtx = document.createElement('canvas').getContext('2d');
-function fontSize(word) {
+function boardFontSize(words) {
   const family = getComputedStyle(document.documentElement).getPropertyValue('--font-display');
-  measureCtx.font = `800 100px ${family}`;
-  const widthAt100 = measureCtx.measureText(word.toUpperCase()).width;
-  return Math.max(9, Math.min(m.tileW * 0.19, (m.tileW - 14) * 100 / widthAt100));
+  measureCtx.font = `700 100px ${family}`;
+  const widest = Math.max(...words.map(w => measureCtx.measureText(w.toUpperCase()).width));
+  return Math.max(9, Math.min(m.tileW * 0.18, (m.tileW - 14) * 100 / widest));
 }
 
 function build() {
@@ -74,11 +75,11 @@ function render() {
   const { w, h } = boardSize(m);
   boardEl.style.width = `${w}px`;
   boardEl.style.height = `${h}px`;
+  boardEl.style.fontSize = `${boardFontSize(board.tiles.map(t => t.word))}px`;
   for (const t of board.tiles) {
     const el = tileEls[t.id];
     el.style.width = `${m.tileW}px`;
     el.style.height = `${m.tileH}px`;
-    el.style.fontSize = `${fontSize(t.word)}px`;
     el.style.transform = `translate(${t.x}px, ${t.y}px)`;
     el.dataset.color = t.color;
     el.dataset.selected = t.selected;
