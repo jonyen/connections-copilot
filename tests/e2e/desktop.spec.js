@@ -216,8 +216,9 @@ test('first visit shows the pitch; closing it is remembered', async ({ page }) =
   await expect(page.locator('#about')).toBeVisible();
 });
 
-test('canvas: tiles are square, snap starts off, and a tile can be parked below the grid', async ({ page }) => {
-  await expect(page.locator('#snap')).not.toBeChecked();
+test('canvas: tiles are square, snap starts on, and a tile can be parked below the grid', async ({ page }) => {
+  await expect(page.locator('#snap')).toBeChecked();
+  await page.locator('#snap').uncheck();
   const box = await tile(page, 'SOLE').boundingBox();
   expect(Math.round(box.width)).toBe(Math.round(box.height));
   const board = await page.locator('#board').boundingBox();

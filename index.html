@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Swipe-select Proposal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +40,7 @@
     color-scheme: dark;
   }
   [hidden] { display: none !important; }
-  html, body { height: 100%; }
+  html, body { height: 100%; touch-action: manipulation; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
          display: flex; flex-direction: column; overflow: hidden; }
 
@@ -116,7 +116,7 @@
         <label><input type="radio" name="mode" id="mode-current" value="current"> Current</label>
         <label><input type="radio" name="mode" id="mode-proposed" value="proposed" checked> Proposed</label>
       </fieldset>
-      <label class="check"><input type="checkbox" id="snap"> Snap</label>
+      <label class="check"><input type="checkbox" id="snap" checked> Snap</label>
       <span class="spacer"></span>
       <button id="reset" type="button">Reset</button>
     </div>
