@@ -6,7 +6,7 @@
     "test": "node --test tests/unit/*.test.js",
     "e2e": "playwright test",
     "fetch-puzzle": "node scripts/fetch-puzzle.mjs",
-    "build": "rm -rf dist && mkdir dist && cp -R index.html src dist/",
+    "build": "rm -rf dist && mkdir dist && cp -R index.html favicon.svg apple-touch-icon.png src dist/",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
